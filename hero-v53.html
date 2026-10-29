@@ -268,18 +268,26 @@ const CAFE_FRAG = `
       sin(vUv.y * 21.0 + uTime * 1.25) * 0.005,
       cos(vUv.x * 18.0 - uTime * 1.05) * 0.005);
     vec3 fundo = vec3(0.012, 0.006, 0.003);
-    vec3 meio  = vec3(0.034, 0.018, 0.008);
+    vec3 meio  = vec3(0.030, 0.016, 0.008);
     vec3 col = mix(meio, fundo, smoothstep(0.10, 0.92, r));
-    /* faixa quente da janela refletida (canto superior esquerdo) */
-    vec2 sp = (uvR - vec2(0.33, 0.72)) * vec2(1.5, 3.4);
-    col += vec3(1.0, 0.76, 0.44) * exp(-dot(sp, sp) * 4.5) * 0.11;
-    /* brilho que passeia devagar pela superfície */
+    /* hierarquia do Leo (29/10 16:47, com foto da tela dele): quem domina a
+       superfície é o CAFÉ PRETO profundo e realista; brilho é DETALHE.
+       (A tentativa anterior — véu quente amplo + reflexo forte — lavou o
+       disco pra um bege leitoso: reprovada pelo olho dele.) */
+    float veu = 0.55 + 0.45 * smoothstep(0.05, 0.95, uvR.y);
+    col += vec3(0.46, 0.26, 0.11) * veu * 0.035 * (1.0 - r * 0.30);
+    /* faixa quente da janela refletida: detalhe estreito, não protagonista */
+    vec2 sp = (uvR - vec2(0.33, 0.72)) * vec2(1.6, 3.6);
+    col += vec3(1.0, 0.76, 0.44) * exp(-dot(sp, sp) * 5.0) * 0.13;
+    /* brilho que passeia devagar pela superfície: faísca pequena */
     vec2 gp = vec2(0.5 + 0.20 * sin(uTime * 0.42), 0.5 + 0.13 * cos(uTime * 0.31));
     vec2 gd = uvR - gp;
-    col += vec3(1.0, 0.84, 0.56) * exp(-dot(gd, gd) * 48.0) * 0.09;
-    /* anel do menisco encostado na parede da xícara */
-    float anel = smoothstep(0.865, 0.975, r) * (1.0 - smoothstep(0.975, 1.0, r));
-    col += vec3(0.50, 0.27, 0.11) * anel * 0.10;
+    col += vec3(1.0, 0.84, 0.56) * exp(-dot(gd, gd) * 55.0) * 0.09;
+    /* anel de crema/menisco encostado na parede: o aro caramelo fino que
+       desenha a borda do líquido preto contra o metal — assinatura do
+       café passado na hora */
+    float anel = smoothstep(0.84, 0.965, r) * (1.0 - smoothstep(0.965, 1.0, r));
+    col += vec3(0.50, 0.27, 0.11) * anel * 0.22;
     gl_FragColor = vec4(col, 1.0);
     #include <tonemapping_fragment>
     #include <encodings_fragment>
@@ -354,7 +362,7 @@ function criarCafe3D(canvas, opcoes){
     uniforms: { uTime: { value: 0 } },
     vertexShader: CAFE_VERT, fragmentShader: CAFE_FRAG
   });
-  const cafe = new THREE.Mesh(new THREE.CircleGeometry(0.878, 64), matCafe);
+  const cafe = new THREE.Mesh(new THREE.CircleGeometry(0.90, 64), matCafe);
   cafe.rotation.x = -Math.PI / 2;
   cafe.position.y = 1.460;
   grupo.add(cafe);
@@ -368,7 +376,10 @@ function criarCafe3D(canvas, opcoes){
   chao.receiveShadow = true;
   cena3.add(chao);
 
-  const INCL = 0.155; /* rad — inclinação da câmera (elipse da boca da foto: ry/rx = 0,155) */
+  const INCL = 0.30; /* rad — inclinação da câmera. Era 0,155 (elipse da foto):
+    a superfície do café virava uma lâmina invisível; 0,30 dobra a profundidade
+    da elipse (seno 0,155→0,295) e o café se lê na xícara parada e girando,
+    sem mexer no enquadramento (CAL intacta). Realce 29/10, pedido do Leo. */
   /* altura do olhar (unid. locais da xícara) vem da CAL: alvoY */
   let caixaPx = { x: 0, y: 0, w: 0, h: 0 }, palcoPx = { w: 0, h: 0 };
   let angulo = -0.38, velocidade = 0, ultimoToque = -1e9, arrastando = false;
@@ -641,7 +652,12 @@ function desenhaCafe3D(agora, manual){
     const w = SW * CFG.steamW * 0.85;
     const hCheio = w * (st.height / st.width);
     const h = hCheio * RAIZ;
-    const sx = lx - w * CFG.steamAnchorX, sy = ly - h + 2; /* a raiz pousa 2px dentro do líquido: sem fresta */
+    /* AJUSTE FINO 29/10 16:47 (Leo, com foto): a fumacinha "um pouquinho mais
+       pra cima" — a raiz sobe LEVA px acima da linha do líquido (antes pousava
+       2px dentro). LEVA é fino (~0,5% da altura do palco): a base densa do fio
+       segue colada na boca, sem fresta flutuante e sem pintar o corpo. */
+    const LEVA = Math.max(3, Math.round(SH * 0.005));
+    const sx = lx - w * CFG.steamAnchorX, sy = ly - h - LEVA;
     vx.globalAlpha = 0.62 * (manual ? 0.65 : 1);
     vx.drawImage(st, 0, 0, st.width, st.height * RAIZ, sx, sy, w, h);
     vx.globalAlpha = 0.45 * (manual ? 0.65 : 1);
