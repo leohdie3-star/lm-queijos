@@ -622,19 +622,30 @@ function desenhaCafeFoto(agora, manual){
 }
 
 /* café 3D: o WebGL desenha o objeto (com a sombra de contato real dele) e o
-   canvas 2D desenha SÓ o vapor em fio, ancorado na boca projetada do 3D. */
+   canvas 2D desenha SÓ o vapor em fio, ancorado na boca projetada do 3D.
+   CORREÇÃO 29/10 (veredito do Leo, 16:17: "a fumaça está saindo na metade da
+   xícara"): a raiz visível do vapor nos quadros-fonte fica a ~3% da base do
+   sprite (MEDIDO no alfa dos 48 quadros de steam-col), e não a 15,7% como o
+   steamBaseFrac antigo supunha — a faixa densa do fio caía sobre o aro e a
+   parede da xícara, e o fundo do sprite pintava ~17px sobre o corpo. Agora o
+   sprite é RECORTADO na linha da raiz e essa linha pousa exatamente na
+   superfície do líquido (a boca projetada): abaixo da raiz não há alfa no
+   sprite, então nada de vapor pinta sobre o corpo — o fio nasce da boca. */
 function desenhaCafe3D(agora, manual){
   cafe.desenha(agora);
   if (!cafe.boca) return;
   const lx = SW * cafe.boca.x, ly = SH * cafe.boca.y;
   const st = stImgs[Math.floor(agora / 100) % NST];
   if (st && st.complete){
-    const w = SW * CFG.steamW * 0.85, h = w * (st.height / st.width);
-    const sx = lx - w * CFG.steamAnchorX, sy = ly - h * (1 - CFG.steamBaseFrac) + h * 0.02;
+    const RAIZ = 0.968; /* linha da raiz visível do vapor no sprite (fração da altura, a partir do topo) */
+    const w = SW * CFG.steamW * 0.85;
+    const hCheio = w * (st.height / st.width);
+    const h = hCheio * RAIZ;
+    const sx = lx - w * CFG.steamAnchorX, sy = ly - h + 2; /* a raiz pousa 2px dentro do líquido: sem fresta */
     vx.globalAlpha = 0.62 * (manual ? 0.65 : 1);
-    vx.drawImage(st, sx, sy, w, h);
+    vx.drawImage(st, 0, 0, st.width, st.height * RAIZ, sx, sy, w, h);
     vx.globalAlpha = 0.45 * (manual ? 0.65 : 1);
-    vx.drawImage(st, sx, sy, w, h);
+    vx.drawImage(st, 0, 0, st.width, st.height * RAIZ, sx, sy, w, h);
     vx.globalAlpha = 1;
   }
 }
